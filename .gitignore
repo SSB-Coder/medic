@@ -1,5 +1,5 @@
+medical_vector_db/
 .streamlit/
 __pycache__/
 venv/
-medical_vector_db/
 *.csv
