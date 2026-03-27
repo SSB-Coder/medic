@@ -8,6 +8,7 @@ from huggingface_hub import snapshot_download
 # --- 1. CONFIG & SECRETS ---
 try:
     GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+    # Provide a default empty string if HF_TOKEN isn't set
     HF_TOKEN = st.secrets.get("HF_TOKEN", "") 
 except KeyError:
     st.error("Missing Secrets! Please add GROQ_API_KEY to your Streamlit dashboard.")
@@ -20,21 +21,21 @@ st.set_page_config(page_title="Medical AI Assistant", page_icon="🩺", layout="
 # --- 2. EMBEDDINGS SETUP ---
 @st.cache_resource
 def get_embeddings():
+    # This downloads ~90MB. If it hangs, the Streamlit server is likely low on RAM.
     return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-
-embeddings = get_embeddings()
 
 # --- 3. CLOUD DOWNLOADER ---
 @st.cache_resource
 def get_db_from_cloud():
     db_path = "medical_vector_db"
+    # Look for the specific index file to verify the download
     index_file = os.path.join(db_path, "index.faiss")
     
     if not os.path.exists(index_file):
-        with st.spinner("📥 Downloading 600MB medical database..."):
+        with st.spinner("📥 Downloading medical database from Hugging Face..."):
             try:
                 snapshot_download(
-                    repo_id="your-username/medical-db", # <--- CHANGE THIS
+                    repo_id="your-username/medical-db", # <--- DOUBLE CHECK THIS NAME
                     repo_type="dataset",
                     local_dir=".",
                     local_dir_use_symlinks=False,
@@ -47,24 +48,29 @@ def get_db_from_cloud():
     return db_path
 
 # --- 4. DATA INITIALIZATION ---
+# Load embeddings first, then download/load the DB
+embeddings = get_embeddings()
 db_folder = get_db_from_cloud()
 
 @st.cache_resource
-def load_memory(db_folder):
-    return FAISS.load_local(db_folder, embeddings, allow_dangerous_deserialization=True)
+def load_memory(_db_folder, _embeddings):
+    # Fixed: Removed 'use_avx2' which caused the previous TypeError
+    return FAISS.load_local(
+        _db_folder, 
+        _embeddings, 
+        allow_dangerous_deserialization=True
+    )
 
-vector_db = load_memory(db_folder)
+vector_db = load_memory(db_folder, embeddings)
 
-# --- 5. SIDEBAR CONTROLS (NEW) ---
+# --- 5. SIDEBAR CONTROLS ---
 with st.sidebar:
     st.title("⚙️ Chat Settings")
     st.info("Managing your session history.")
     
-    # New Chat / Clear Chat Button
     if st.button("🗑️ Clear Chat & Start New", use_container_width=True):
         st.session_state.messages = []
-        st.success("Chat history cleared!")
-        st.rerun() # Refresh the app to show an empty chat
+        st.rerun() 
 
     st.divider()
     st.markdown("### System Status")
@@ -91,6 +97,7 @@ if prompt := st.chat_input("Ask a medical question..."):
 
     # SEARCH
     with st.spinner("Searching medical database..."):
+        # Retrieve top 3 relevant chunks
         docs = vector_db.similarity_search(prompt, k=3)
         context = "\n---\n".join([d.page_content for d in docs])
 
@@ -103,7 +110,7 @@ if prompt := st.chat_input("Ask a medical question..."):
                     messages=[
                         {
                             "role": "system", 
-                            "content": f"You are a medical assistant. Use context: {context}"
+                            "content": f"You are a professional medical assistant. Answer based on: {context}"
                         },
                         {"role": "user", "content": prompt}
                     ],
@@ -112,8 +119,6 @@ if prompt := st.chat_input("Ask a medical question..."):
                 
                 answer = completion.choices[0].message.content
                 st.markdown(answer)
-                
-                
                 st.session_state.messages.append({"role": "assistant", "content": answer})
                 
             except Exception as e:
