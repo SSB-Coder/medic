@@ -16,7 +16,7 @@ except KeyError:
 
 client = Groq(api_key=GROQ_API_KEY)
 
-st.set_page_config(page_title="Medical AI Assistant", page_icon="🩺", layout="wide")
+st.set_page_config(page_title="Medic Chatbot", page_icon="🩺", layout="wide")
 
 # --- 2. EMBEDDINGS SETUP ---
 @st.cache_resource
