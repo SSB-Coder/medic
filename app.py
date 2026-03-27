@@ -35,7 +35,7 @@ def get_db_from_cloud():
         with st.spinner("📥 Downloading medical database from Hugging Face..."):
             try:
                 snapshot_download(
-                    repo_id="your-username/medical-db", # <--- DOUBLE CHECK THIS NAME
+                    repo_id="SimonSimply/medical-db", # <--- DOUBLE CHECK THIS NAME
                     repo_type="dataset",
                     local_dir=".",
                     local_dir_use_symlinks=False,
