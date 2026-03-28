@@ -10,10 +10,8 @@ import os
 def prepare_knowledge_base():
     start_time = time.time()
     
-    # 1. Load Data
     print("Reading medic.csv (256k rows)...")
     try:
-        # header=0 if your CSV has headers, otherwise header=None
         medic_df = pd.read_csv('medic.csv', usecols=[0, 1, 2], low_memory=False)
         medic_df.columns = ['Description', 'Patient', 'Doctor']
     except Exception as e:
@@ -30,7 +28,6 @@ def prepare_knowledge_base():
 
     all_docs = []
     
-    # 2. Process Medical Records
     for row in tqdm(medic_df.itertuples(index=False), total=len(medic_df), desc="Formatting Medical Data"):
         desc, pat, doc = map(lambda x: str(x).strip() if pd.notna(x) else "", row)
         content = f"Context: {desc}\nPatient: {pat}\nDoctor: {doc}"
@@ -39,7 +36,6 @@ def prepare_knowledge_base():
     del medic_df
     gc.collect()
 
-    # 3. Process Conversations
     for row in tqdm(convo_df.itertuples(index=False), total=len(convo_df), desc="Formatting Conversations"):
         _, ques, ans = map(lambda x: str(x).strip() if pd.notna(x) else "", row)
         content = f"Question: {ques}\nAnswer: {ans}"
@@ -48,11 +44,10 @@ def prepare_knowledge_base():
     del convo_df
     gc.collect()
 
-    # 4. Create Vector DB with Batching (The Fix for your RAM)
     print("\nInitializing Embedding Model...")
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     
-    batch_size = 5000  # Adjust this to 2000 if your RAM still hits 90%
+    batch_size = 5000  
     vector_db = None
 
     print(f"Generating Embeddings for {len(all_docs)} documents in batches of {batch_size}...")
@@ -65,13 +60,11 @@ def prepare_knowledge_base():
         else:
             vector_db.add_documents(batch)
         
-        # Explicit memory cleanup after each batch
         del batch
         gc.collect()
         
         print(f"--- Indexed {min(i + batch_size, len(all_docs))} / {len(all_docs)} documents ---")
 
-    # 5. Save locally
     print("\nSaving knowledge base to disk...")
     vector_db.save_local("medical_vector_db")
     
