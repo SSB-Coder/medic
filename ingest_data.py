@@ -9,7 +9,6 @@ import os
 
 def prepare_knowledge_base():
     start_time = time.time()
-    
     print("Reading medic.csv (256k rows)...")
     try:
         medic_df = pd.read_csv('medic.csv', usecols=[0, 1, 2], low_memory=False)
@@ -17,7 +16,6 @@ def prepare_knowledge_base():
     except Exception as e:
         print(f"Error loading medic.csv: {e}")
         return
-
     print("Reading convo.csv...")
     try:
         convo_df = pd.read_csv('convo.csv')
@@ -25,9 +23,7 @@ def prepare_knowledge_base():
     except Exception as e:
         print(f"Error loading convo.csv: {e}")
         return
-
     all_docs = []
-    
     for row in tqdm(medic_df.itertuples(index=False), total=len(medic_df), desc="Formatting Medical Data"):
         desc, pat, doc = map(lambda x: str(x).strip() if pd.notna(x) else "", row)
         content = f"Context: {desc}\nPatient: {pat}\nDoctor: {doc}"
