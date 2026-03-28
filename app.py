@@ -95,7 +95,7 @@ if prompt := st.chat_input("Ask a medical question..."):
                     messages=[
                         {
                             "role": "system", 
-                            "content": f"You are a professional medical assistant. Answer based on: {context}"
+                            "content": f"You are a professional medical assistant who answers mostly medical related questions. Answer based on: {context} and if the given topic is not found in context say I don't know. Any question asked should have a detailed answer and if the question is related to a illness the user is suffering from, then after an detailed answer, keep a note that they should visit a doctor to have a through examination"
                         },
                         {"role": "user", "content": prompt}
                     ],
