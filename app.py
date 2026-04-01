@@ -87,23 +87,28 @@ if prompt := st.chat_input("Ask a medical question..."):
         docs = vector_db.similarity_search(prompt, k=3)
         context = "\n---\n".join([d.page_content for d in docs])
 
-    with st.chat_message("assistant"):
+   with st.chat_message("assistant"):
         with st.spinner("Analyzing data..."):
             try:
+                api_messages = [
+                    {
+                        "role": "system", 
+                        "content": f"You are a professional medical assistant who gives only medical answers in detail. Answer based on: {context} and give correct medical advice. If the question is not related to medicine, say you can only answer medical questions. If it's out of your knowledge, say you don't know. Do not make up answers. Use the context and the conversation history to stay relevant. After any and all medical advice and only medical advice, include a note that the user should consult a healthcare professional for personalized guidance instead of relying solely on the information provided here."
+                    }
+                ]
+
+                for msg in st.session_state.messages[-6:]:
+                    api_messages.append({"role": msg["role"], "content": msg["content"]})
+
                 completion = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
-                    messages=[
-                        {
-                            "role": "system", 
-                            "content": f"You are a professional medical assistant who answers mostly medical related questions. Answer based on: {context} and if the given topic is not found in context say I don't know and anything other than medical questions should be considered out of context. Any question asked should have a detailed answer and if the question is related to a illness the user is suffering from, then after an detailed answer, keep a note that they should visit a doctor to have a through examination, this note should only appear when a medical related question is asked. "
-                        },
-                        {"role": "user", "content": prompt}
-                    ],
+                    messages=api_messages,
                     temperature=0.1
                 )
                 
                 answer = completion.choices[0].message.content
                 st.markdown(answer)
+                
                 st.session_state.messages.append({"role": "assistant", "content": answer})
                 
             except Exception as e:
