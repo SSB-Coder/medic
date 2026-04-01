@@ -86,8 +86,8 @@ if prompt := st.chat_input("Ask a medical question..."):
         
         docs = vector_db.similarity_search(prompt, k=3)
         context = "\n---\n".join([d.page_content for d in docs])
-
-   with st.chat_message("assistant"):
+    
+    with st.chat_message("assistant"):
         with st.spinner("Analyzing data..."):
             try:
                 api_messages = [
