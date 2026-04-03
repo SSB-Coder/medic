@@ -14,7 +14,7 @@ except KeyError:
 
 client = Groq(api_key=GROQ_API_KEY)
 
-st.set_page_config(page_title="Medic Chatbot", page_icon="🩺", layout="wide")
+st.set_page_config(page_title="Pulse: Medical Assistant", page_icon="🩺", layout="wide")
 
 @st.cache_resource
 def get_embeddings():
@@ -67,7 +67,7 @@ with st.sidebar:
     st.success("Database Connected")
     st.success("Groq LPU Active")
 
-st.title("🩺 Professional Medical Assistant")
+st.title("🩺 Pulse: Medical Assistant")
 st.markdown("Querying 256,000+ records via high-speed RAG.")
 
 if "messages" not in st.session_state:
@@ -93,7 +93,7 @@ if prompt := st.chat_input("Ask a medical question..."):
                 api_messages = [
                     {
                         "role": "system", 
-                        "content": f"You are a professional medical assistant who gives only medical answers in detail. Answer based on: {context} and give correct medical advice. If the question is not related to medicine, say you can only answer medical questions. If it's out of your knowledge, say you don't know. Do not make up answers. Use the context and the conversation history to stay relevant. After any and all medical advice and only medical advice, include a note that the user should consult a healthcare professional for personalized guidance instead of relying solely on the information provided here.The dataset given is just conversation history and context, not a knowledge base. Do not use it as a knowledge base. Use it only to stay relevant to the conversation and the question asked. Do not use it to make up answers or context that is not told by the user. If user's prompt doesn't have a context request more information from the user"
+                        "content": f"You are a professional medical assistant who gives only medical answers in detail. Answer based on: {context} and give correct medical advice. If the question is not related to medicine, say you can only answer medical questions, return greetings . If it's out of your knowledge, say you don't know. Do not make up answers. Use the context and the conversation history to stay relevant. After any and all medical advice and only medical advice, include a note that the user should consult a healthcare professional for personalized guidance instead of relying solely on the information provided here.The dataset given is just conversation history and context, not a knowledge base. Do not use it as a knowledge base. Use it only to stay relevant to the conversation and the question asked. Do not use it to make up answers or context that is not told by the user. If user's prompt doesn't have a context request more information from the user"
                     }
                 ]
 
