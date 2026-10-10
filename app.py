@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import re
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from groq import Groq
@@ -147,6 +148,18 @@ WELCOME_HTML = (
     'General information only, not a diagnosis.</p></div>'
 )
 
+def format_answer(text):
+    # Models use <br> for line breaks inside table cells. Keep those, neutralize every other tag.
+    text = re.sub(r"<br\s*/?>", "\x00", str(text), flags=re.IGNORECASE)
+    text = re.sub(r"<(?=[A-Za-z/!?])", "&lt;", text)
+    return text.replace("\x00", "<br>")
+
+def show_message(role, text):
+    if role == "assistant":
+        st.markdown(format_answer(text), unsafe_allow_html=True)
+    else:
+        st.markdown(text)
+
 @st.cache_resource
 def get_embeddings():
     return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
@@ -213,7 +226,7 @@ if not st.session_state.messages:
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+        show_message(msg["role"], msg["content"])
 
 typed_prompt = st.chat_input("Ask a medical question...")
 prompt = typed_prompt or st.session_state.pop("pending_prompt", None)
@@ -257,7 +270,7 @@ if prompt:
             )
 
             answer = response.choices[0].message.content
-            st.markdown(answer)
+            show_message("assistant", answer)
             st.session_state.messages.append({"role": "assistant", "content": answer})
 
         except Exception as e:
