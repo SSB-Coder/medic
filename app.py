@@ -78,6 +78,10 @@ STYLE = """
     color: var(--ink); font-weight: 500; line-height: 1.35;
     transition: border-color 0.15s, color 0.15s;
 }
+.stButton > button { height: auto; }
+.stButton > button, .stButton > button * {
+    white-space: normal !important; overflow: visible !important; text-overflow: clip !important;
+}
 .stButton > button p { color: inherit; }
 .stButton > button:hover { border-color: var(--pulse); color: var(--pulse); background: #fff; }
 .stButton > button:focus-visible { outline: 2px solid var(--pulse); outline-offset: 2px; }
@@ -108,11 +112,14 @@ STYLE = """
     padding: 0.6rem 0.75rem; vertical-align: top;
 }
 [data-testid="stChatMessage"] hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] * { color: var(--ink); }
+[data-testid="stChatMessage"] code, [data-testid="stChatMessage"] pre { background: #EEF2F6; }
 
 [data-testid="stBottom"], [data-testid="stBottom"] > div { background: var(--gauze); }
-[data-testid="stChatInput"] { background: #fff; border: 1px solid #C9D3DD; border-radius: 999px; }
-[data-testid="stChatInput"]:focus-within { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(200, 40, 63, 0.18); }
-[data-testid="stChatInput"] textarea { background: #fff; color: var(--ink); font-family: var(--sans); }
+[data-testid="stChatInput"] { background: #fff !important; border: 1px solid #C9D3DD !important; border-radius: 999px !important; overflow: hidden; }
+[data-testid="stChatInput"] div { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+[data-testid="stChatInput"]:focus-within { border-color: var(--ink) !important; box-shadow: 0 0 0 3px rgba(200, 40, 63, 0.18) !important; }
+[data-testid="stChatInput"] textarea { background: transparent !important; color: var(--ink) !important; font-family: var(--sans); }
 [data-testid="stChatInput"] textarea::placeholder { color: var(--slate); }
 [data-testid="stChatInput"] button { background: var(--ink); color: #fff; border-radius: 999px; }
 
@@ -244,7 +251,7 @@ if prompt:
             api_messages.extend(st.session_state.messages[-6:])
 
             response = client.chat.completions.create(
-                model="openai/gpt-oss-120b",
+                model="openai/gpt-oss-20b",
                 messages=api_messages,
                 temperature=0.1
             )
