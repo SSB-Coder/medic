@@ -21,6 +21,125 @@ except KeyError:
 
 client = Groq(api_key=GROQ_API_KEY)
 
+SUGGESTIONS = [
+    "What are the common symptoms of diabetes?",
+    "How can I manage high blood pressure?",
+    "What causes frequent headaches?",
+]
+
+STYLE = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:wght@500;600&display=swap');
+
+:root {
+    --gauze: #F6F8FA;
+    --ink: #10243A;
+    --slate: #5B6B7B;
+    --line: #DCE3EA;
+    --pulse: #C8283F;
+    --tint: #E8EEF5;
+    --serif: 'Newsreader', Georgia, serif;
+    --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    color-scheme: light;
+}
+
+#MainMenu, footer,
+[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"] {
+    display: none !important;
+}
+
+.stApp { background: var(--gauze); font-family: var(--sans); }
+.stApp, .stApp p, .stApp li, .stApp h1, .stApp h2, .stApp h3, .stApp h4 { color: var(--ink); }
+.stApp p, .stApp li, .stApp td, .stApp th, .stApp button, .stApp textarea { font-family: var(--sans); }
+.block-container { max-width: 760px; padding-top: 2.2rem; padding-bottom: 7rem; }
+[data-testid="stHorizontalBlock"] { align-items: center; gap: 0.75rem; }
+
+.brand { display: flex; flex-direction: column; gap: 0.15rem; }
+.wordmark { font-family: var(--serif); font-weight: 600; font-size: 2.1rem; line-height: 1.05; letter-spacing: -0.01em; color: var(--ink); }
+.tagline { font-family: var(--sans); font-size: 0.92rem; color: var(--slate); }
+
+.ecg { margin: 0.4rem 0 1.4rem; }
+.ecg svg { display: block; width: 100%; height: auto; }
+.ecg path {
+    fill: none; stroke: var(--pulse); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+    stroke-dasharray: 1200; stroke-dashoffset: 0;
+    animation: trace 1.8s cubic-bezier(0.4, 0, 0.2, 1) 0.15s both;
+}
+@keyframes trace { from { stroke-dashoffset: 1200; } to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .ecg path { animation: none; } }
+
+.welcome { padding: 1.2rem 0 1rem; }
+.welcome-title { font-family: var(--serif); font-weight: 600; font-size: 1.9rem; line-height: 1.15; letter-spacing: -0.01em; color: var(--ink); margin-bottom: 0.5rem; }
+.stApp p.welcome-copy { color: var(--slate); max-width: 52ch; margin: 0 0 1.2rem; line-height: 1.6; }
+
+.stButton > button {
+    width: 100%; min-height: 3rem; padding: 0.55rem 0.85rem;
+    border-radius: 10px; border: 1px solid #C9D3DD; background: #fff;
+    color: var(--ink); font-weight: 500; line-height: 1.35;
+    transition: border-color 0.15s, color 0.15s;
+}
+.stButton > button p { color: inherit; }
+.stButton > button:hover { border-color: var(--pulse); color: var(--pulse); background: #fff; }
+.stButton > button:focus-visible { outline: 2px solid var(--pulse); outline-offset: 2px; }
+
+[data-testid="stChatMessage"] {
+    background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 1rem 1.15rem; margin-bottom: 0.8rem;
+}
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]),
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+    background: var(--tint); border-color: transparent;
+}
+[data-testid="stChatMessageAvatarUser"], [data-testid="stChatMessageAvatarAssistant"],
+[data-testid="chatAvatarIcon-user"], [data-testid="chatAvatarIcon-assistant"] { display: none; }
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] { overflow-x: auto; }
+[data-testid="stChatMessage"] p, [data-testid="stChatMessage"] li { font-size: 1rem; line-height: 1.65; max-width: 70ch; }
+[data-testid="stChatMessage"] h1, [data-testid="stChatMessage"] h2,
+[data-testid="stChatMessage"] h3, [data-testid="stChatMessage"] h4 {
+    font-family: var(--serif); font-weight: 600; line-height: 1.25; margin: 1.1rem 0 0.4rem; padding: 0;
+}
+[data-testid="stChatMessage"] h1 { font-size: 1.4rem; }
+[data-testid="stChatMessage"] h2 { font-size: 1.25rem; }
+[data-testid="stChatMessage"] h3, [data-testid="stChatMessage"] h4 { font-size: 1.1rem; }
+[data-testid="stChatMessage"] table { width: 100%; border-collapse: collapse; font-size: 0.92rem; margin: 0.6rem 0; }
+[data-testid="stChatMessage"] th { background: var(--gauze); text-align: left; font-weight: 600; }
+[data-testid="stChatMessage"] th, [data-testid="stChatMessage"] td {
+    border: 0 !important; border-bottom: 1px solid var(--line) !important;
+    padding: 0.6rem 0.75rem; vertical-align: top;
+}
+[data-testid="stChatMessage"] hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
+
+[data-testid="stBottom"], [data-testid="stBottom"] > div { background: var(--gauze); }
+[data-testid="stChatInput"] { background: #fff; border: 1px solid #C9D3DD; border-radius: 999px; }
+[data-testid="stChatInput"]:focus-within { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(200, 40, 63, 0.18); }
+[data-testid="stChatInput"] textarea { background: #fff; color: var(--ink); font-family: var(--sans); }
+[data-testid="stChatInput"] textarea::placeholder { color: var(--slate); }
+[data-testid="stChatInput"] button { background: var(--ink); color: #fff; border-radius: 999px; }
+
+@media (max-width: 640px) {
+    .wordmark { font-size: 1.75rem; }
+    .block-container { padding-left: 1rem; padding-right: 1rem; }
+}
+</style>
+"""
+
+HEADER_HTML = (
+    '<div class="brand"><span class="wordmark">Pulse</span>'
+    '<span class="tagline">Medical information assistant</span></div>'
+)
+
+ECG_HTML = (
+    '<div class="ecg"><svg viewBox="0 0 740 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    '<path d="M0 26H214Q226 12 238 26H262L269 32L281 4L293 44L301 26H336Q360 6 384 26H740"/>'
+    '</svg></div>'
+)
+
+WELCOME_HTML = (
+    '<div class="welcome"><div class="welcome-title">Ask a health question</div>'
+    '<p class="welcome-copy">Pulse searches a database of doctor–patient conversations to help answer. '
+    'General information only, not a diagnosis.</p></div>'
+)
+
 @st.cache_resource
 def get_embeddings():
     return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
@@ -58,45 +177,48 @@ embeddings = get_embeddings()
 db_folder = get_db_from_cloud()
 vector_db = load_vector_db(db_folder, embeddings)
 
-st.markdown("""
-<style>
-    .main { max-width: 900px; margin: 0 auto; }
-    .stChatMessage { font-size: 16px; }
-    [data-testid="stChatMessageContent"] { font-size: 16px; }
-    .stButton > button {
-        width: 100%;
-        border-radius: 8px;
-        font-weight: 500;
-    }
-</style>
-""", unsafe_allow_html=True)
+st.markdown(STYLE, unsafe_allow_html=True)
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-col2, col3 = st.columns([2, 1])
+title_col, action_col = st.columns([4, 1])
 
-with col2:
-    st.markdown("<div style='text-align: center;'><div style='font-size: 48px;'>🩺 PULSE</div><div style='font-size: 18px;'>A Medical Assistant</div></div>", unsafe_allow_html=True)
+with title_col:
+    st.markdown(HEADER_HTML, unsafe_allow_html=True)
 
-with col3:
-    if st.button("🔄 New Chat", use_container_width=True):
+with action_col:
+    if st.button("New chat", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
 
-st.markdown("---")
+st.markdown(ECG_HTML, unsafe_allow_html=True)
+
+welcome = st.empty()
+if not st.session_state.messages:
+    with welcome.container():
+        st.markdown(WELCOME_HTML, unsafe_allow_html=True)
+        chip_cols = st.columns(len(SUGGESTIONS))
+        for i, (chip_col, question) in enumerate(zip(chip_cols, SUGGESTIONS)):
+            if chip_col.button(question, key=f"chip_{i}", use_container_width=True):
+                st.session_state.pending_prompt = question
+                st.rerun()
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if prompt := st.chat_input("Ask a medical question..."):
+typed_prompt = st.chat_input("Ask a medical question...")
+prompt = typed_prompt or st.session_state.pop("pending_prompt", None)
+
+if prompt:
+    welcome.empty()
     st.session_state.messages.append({"role": "user", "content": prompt})
-    
+
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    with st.spinner("🔍 Searching medical database..."):
+    with st.spinner("Searching the medical database..."):
         docs = vector_db.similarity_search(prompt, k=3)
         context = "\n---\n".join([d.page_content for d in docs])
 
@@ -111,7 +233,6 @@ if prompt := st.chat_input("Ask a medical question..."):
 - If the answer is outside your knowledge, say "I don't know" rather than making up information
 - Use context and conversation history to stay relevant
 - Do NOT make up answers or fabricate context
-- If the User greets you then you can return a greeting and ask what query they have
 
 **IMPORTANT**: After any medical advice and only medical advice, include a disclaimer:
 "⚠️ Please consult a healthcare professional for personalized medical guidance."
@@ -123,7 +244,7 @@ if prompt := st.chat_input("Ask a medical question..."):
             api_messages.extend(st.session_state.messages[-6:])
 
             response = client.chat.completions.create(
-                model="openai/gpt-oss-20b",
+                model="openai/gpt-oss-120b",
                 messages=api_messages,
                 temperature=0.1
             )
