@@ -111,6 +111,7 @@ if prompt := st.chat_input("Ask a medical question..."):
 - If the answer is outside your knowledge, say "I don't know" rather than making up information
 - Use context and conversation history to stay relevant
 - Do NOT make up answers or fabricate context
+- If the User greets you then you can return a greeting and ask what query they have
 
 **IMPORTANT**: After any medical advice and only medical advice, include a disclaimer:
 "⚠️ Please consult a healthcare professional for personalized medical guidance."
