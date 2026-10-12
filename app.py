@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import os
 import re
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -41,6 +42,8 @@ STYLE = """
     --tint: #E8EEF5;
     --serif: 'Newsreader', Georgia, serif;
     --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --nc-w: 6.4rem;
+    --nc-gap: 0.75rem;
     color-scheme: light;
 }
 
@@ -117,16 +120,24 @@ STYLE = """
 [data-testid="stChatMessage"] code, [data-testid="stChatMessage"] pre { background: #EEF2F6; }
 
 [data-testid="stBottom"], [data-testid="stBottom"] > div { background: var(--gauze); }
-[data-testid="stChatInput"] { background: #fff !important; border: 1px solid #C9D3DD !important; border-radius: 999px !important; overflow: hidden; }
+[data-testid="stChatInput"] { width: calc(100% - var(--nc-w) - var(--nc-gap)); background: #fff !important; border: 1px solid #C9D3DD !important; border-radius: 999px !important; overflow: hidden; }
 [data-testid="stChatInput"] div { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
 [data-testid="stChatInput"]:focus-within { border-color: var(--ink) !important; box-shadow: 0 0 0 3px rgba(200, 40, 63, 0.18) !important; }
 [data-testid="stChatInput"] textarea { background: transparent !important; color: var(--ink) !important; font-family: var(--sans); }
 [data-testid="stChatInput"] textarea::placeholder { color: var(--slate); }
 [data-testid="stChatInput"] button { background: var(--ink); color: #fff; border-radius: 999px; }
 
+.st-key-new_chat { position: fixed; right: 1rem; bottom: 1.15rem; z-index: 1000; width: var(--nc-w) !important; }
+.st-key-new_chat button { min-height: 3rem; height: 3rem; padding: 0 0.5rem; border-radius: 999px; }
+.st-key-new_chat button, .st-key-new_chat button * { white-space: nowrap !important; }
+
+[data-testid="stElementContainer"]:has(iframe[height="0"]) { position: absolute; width: 0; height: 0; margin: 0; overflow: hidden; }
+
 @media (max-width: 640px) {
+    :root { --nc-w: 5.4rem; }
     .wordmark { font-size: 1.75rem; }
     .block-container { padding-left: 1rem; padding-right: 1rem; }
+    .st-key-new_chat button { font-size: 0.85rem; }
 }
 </style>
 """
@@ -147,6 +158,72 @@ WELCOME_HTML = (
     '<p class="welcome-copy">Pulse searches a database of doctor–patient conversations to help answer. '
     'General information only, not a diagnosis.</p></div>'
 )
+
+CONTROLS_HTML = """
+<script>
+(function () {
+  var win = window.parent;
+  var doc = win.document;
+
+  if (win.__pulseCleanup) {
+    try { win.__pulseCleanup(); } catch (err) {}
+  }
+
+  function onKey(e) {
+    if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+    var t = e.target;
+    var tag = t && t.tagName ? t.tagName.toLowerCase() : '';
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || (t && t.isContentEditable)) return;
+    var box = doc.querySelector('[data-testid="stChatInput"] textarea');
+    if (!box) return;
+    e.preventDefault();
+    box.focus();
+    var main = doc.querySelector('[data-testid="stMain"]') ||
+               doc.querySelector('section.main') ||
+               doc.querySelector('[data-testid="stAppViewContainer"]');
+    if (main && main.scrollTo) main.scrollTo({ top: main.scrollHeight, behavior: 'smooth' });
+  }
+
+  function place() {
+    var input = doc.querySelector('[data-testid="stChatInput"]');
+    if (!input) return;
+    var btn = null;
+    var all = doc.querySelectorAll('[data-testid="stButton"] button');
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].textContent.trim() === 'New chat') { btn = all[i]; break; }
+    }
+    if (!btn) return;
+    var r = input.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    var holder = btn.closest('[data-testid="stElementContainer"]') ||
+                 btn.closest('.element-container') ||
+                 btn.closest('[data-testid="stButton"]');
+    var w = win.getComputedStyle(doc.documentElement).getPropertyValue('--nc-w').trim() || '6.4rem';
+    holder.style.position = 'fixed';
+    holder.style.zIndex = '1000';
+    holder.style.width = w;
+    holder.style.left = (r.right + 12) + 'px';
+    holder.style.top = r.top + 'px';
+    holder.style.right = 'auto';
+    holder.style.bottom = 'auto';
+    btn.style.height = r.height + 'px';
+    btn.style.minHeight = r.height + 'px';
+    btn.style.whiteSpace = 'nowrap';
+    btn.style.borderRadius = '999px';
+  }
+
+  var timer = setInterval(place, 300);
+  doc.addEventListener('keydown', onKey, true);
+  win.addEventListener('resize', place);
+  win.__pulseCleanup = function () {
+    doc.removeEventListener('keydown', onKey, true);
+    win.removeEventListener('resize', place);
+    clearInterval(timer);
+  };
+  place();
+})();
+</script>
+"""
 
 def format_answer(text):
     # Models use <br> for line breaks inside table cells. Keep those, neutralize every other tag.
@@ -199,18 +276,19 @@ vector_db = load_vector_db(db_folder, embeddings)
 
 st.markdown(STYLE, unsafe_allow_html=True)
 
+try:
+    components.html(CONTROLS_HTML, height=0)
+except Exception:
+    pass
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-title_col, action_col = st.columns([4, 1])
+st.markdown(HEADER_HTML, unsafe_allow_html=True)
 
-with title_col:
-    st.markdown(HEADER_HTML, unsafe_allow_html=True)
-
-with action_col:
-    if st.button("New chat", use_container_width=True):
-        st.session_state.messages = []
-        st.rerun()
+if st.button("New chat", key="new_chat"):
+    st.session_state.messages = []
+    st.rerun()
 
 st.markdown(ECG_HTML, unsafe_allow_html=True)
 
@@ -264,7 +342,7 @@ if prompt:
             api_messages.extend(st.session_state.messages[-6:])
 
             response = client.chat.completions.create(
-                model="openai/gpt-oss-20b",
+                model="openai/gpt-oss-120b",
                 messages=api_messages,
                 temperature=0.1
             )
