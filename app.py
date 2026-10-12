@@ -342,7 +342,7 @@ if prompt:
             api_messages.extend(st.session_state.messages[-6:])
 
             response = client.chat.completions.create(
-                model="openai/gpt-oss-120b",
+                model="openai/gpt-oss-20b",
                 messages=api_messages,
                 temperature=0.1
             )
