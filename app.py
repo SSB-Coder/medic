@@ -2,6 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import os
 import re
+import html as html_lib
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from groq import Groq
@@ -22,6 +23,15 @@ except KeyError:
     st.stop()
 
 client = Groq(api_key=GROQ_API_KEY)
+
+LLM_MODEL = "openai/gpt-oss-20b"
+TOP_K = 3
+
+# L2 distance (lower = closer). Starting guess: tune it using the distances shown in the matches panel.
+WEAK_MATCH_DISTANCE = 1.0
+MATCH_CHARS = 400
+
+KIND_LABELS = {"medical": "Doctor–patient chat", "convo": "Q&A entry"}
 
 SUGGESTIONS = [
     "What are the common symptoms of diabetes?",
@@ -133,6 +143,18 @@ STYLE = """
 
 [data-testid="stElementContainer"]:has(iframe[height="0"]) { position: absolute; width: 0; height: 0; margin: 0; overflow: hidden; }
 
+[data-testid="stChatMessage"] .weak-note {
+    margin-top: 0.8rem; padding: 0.55rem 0.8rem; border: 1px solid #EBD9A4; border-radius: 10px;
+    background: #FFF7E0; color: #7A5200; font-size: 0.88rem; line-height: 1.5;
+}
+[data-testid="stExpander"] { margin-top: 0.8rem; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+[data-testid="stExpander"] details, [data-testid="stExpander"] summary { background: transparent; border: 0; }
+[data-testid="stExpander"] summary, [data-testid="stExpander"] summary * { color: var(--slate); font-size: 0.9rem; }
+[data-testid="stChatMessage"] .match { margin: 0 0 1rem; }
+[data-testid="stChatMessage"] .match:last-child { margin-bottom: 0.2rem; }
+[data-testid="stChatMessage"] .match-meta { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.25rem; font-size: 0.8rem; color: var(--slate); }
+[data-testid="stChatMessage"] .match-text { font-size: 0.92rem; line-height: 1.55; color: var(--ink); }
+
 @media (max-width: 640px) {
     :root { --nc-w: 5.4rem; }
     .wordmark { font-size: 1.75rem; }
@@ -237,6 +259,48 @@ def show_message(role, text):
     else:
         st.markdown(text)
 
+def make_excerpt(text, source):
+    marker = {"medical": "Doctor:", "convo": "Answer:"}.get(source)
+    body = str(text).rsplit(marker, 1)[-1] if marker else str(text)
+    body = re.sub(r"\s+", " ", body).strip()
+    if len(body) > MATCH_CHARS:
+        body = body[:MATCH_CHARS].rsplit(" ", 1)[0].rstrip(",;:.") + "…"
+    return body
+
+def build_matches(results):
+    return [
+        {
+            "kind": KIND_LABELS.get(d.metadata.get("source"), "Database entry"),
+            "excerpt": make_excerpt(d.page_content, d.metadata.get("source")),
+            "distance": float(score),
+        }
+        for d, score in results
+    ]
+
+def is_weak(matches):
+    return not matches or min(m["distance"] for m in matches) > WEAK_MATCH_DISTANCE
+
+def match_html(m):
+    text = html_lib.escape(m["excerpt"]).replace("$", "&#36;")
+    return (
+        '<div class="match"><div class="match-meta">'
+        f'<span>{html_lib.escape(m["kind"])}</span><span>distance {m["distance"]:.3f}</span></div>'
+        f'<div class="match-text">{text}</div></div>'
+    )
+
+WEAK_NOTE_HTML = (
+    '<div class="weak-note">No close match found in the database, '
+    'so this answer may rely on general knowledge.</div>'
+)
+
+def render_matches(matches, weak):
+    if weak:
+        st.markdown(WEAK_NOTE_HTML, unsafe_allow_html=True)
+    if not matches:
+        return
+    with st.expander(f"Closest matches in the database ({len(matches)})"):
+        st.markdown("".join(match_html(m) for m in matches), unsafe_allow_html=True)
+
 @st.cache_resource
 def get_embeddings():
     return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
@@ -305,6 +369,8 @@ if not st.session_state.messages:
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         show_message(msg["role"], msg["content"])
+        if msg["role"] == "assistant":
+            render_matches(msg.get("matches"), msg.get("weak", False))
 
 typed_prompt = st.chat_input("Ask a medical question...")
 prompt = typed_prompt or st.session_state.pop("pending_prompt", None)
@@ -317,8 +383,9 @@ if prompt:
         st.markdown(prompt)
 
     with st.spinner("Searching the medical database..."):
-        docs = vector_db.similarity_search(prompt, k=3)
-        context = "\n---\n".join([d.page_content for d in docs])
+        results = vector_db.similarity_search_with_score(prompt, k=TOP_K)
+        context = "\n---\n".join([d.page_content for d, _ in results])
+    matches = build_matches(results)
 
     with st.chat_message("assistant"):
         try:
@@ -339,17 +406,23 @@ if prompt:
 {context}"""
 
             api_messages = [{"role": "system", "content": system_prompt}]
-            api_messages.extend(st.session_state.messages[-6:])
+            api_messages.extend(
+                {"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-6:]
+            )
 
             response = client.chat.completions.create(
-                model="openai/gpt-oss-20b",
+                model=LLM_MODEL,
                 messages=api_messages,
                 temperature=0.1
             )
 
             answer = response.choices[0].message.content
+            weak = is_weak(matches)
             show_message("assistant", answer)
-            st.session_state.messages.append({"role": "assistant", "content": answer})
+            render_matches(matches, weak)
+            st.session_state.messages.append(
+                {"role": "assistant", "content": answer, "matches": matches, "weak": weak}
+            )
 
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
